@@ -1,1 +1,201 @@
+<!DOCTYPE html>
 
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Universal AI</title>
+
+<!-- Tailwind -->
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- Alpine -->
+
+<script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+<!-- Lucide -->
+
+<script src="https://unpkg.com/lucide@latest"></script>
+
+<style>
+[x-cloak] { display: none !important; }
+</style>
+
+</head>
+
+<body x-data="chatApp()" x-init="init()" class="bg-[#131314] text-white">
+
+<!-- LOGIN -->
+
+<template x-if="!isAuthenticated">
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-[#0e0e0f]">
+    <div class="p-8 text-center space-y-6">
+        <h1 class="text-2xl font-bold">Admin Access</h1>
+        <input type="password" x-model="loginPass"
+            @keydown.enter="verifyPass()"
+            class="w-full bg-[#1e1f20] p-3 rounded text-center"
+            placeholder="Password">
+        <button @click="verifyPass()" class="w-full bg-white text-black py-3 rounded">
+            Unlock
+        </button>
+        <p x-show="loginError" class="text-red-400">Wrong Password</p>
+    </div>
+</div>
+</template>
+
+<!-- APP -->
+
+<div x-show="isAuthenticated" x-cloak class="flex h-screen">
+
+<!-- SIDEBAR -->
+
+<aside class="w-72 bg-[#1e1f20] p-4 flex flex-col">
+    <button @click="createNewChat()" class="mb-4 bg-[#2d2f31] p-3 rounded">
+        + New Chat
+    </button>
+
+```
+<div class="flex-1 overflow-y-auto space-y-2">
+    <template x-for="chat in history" :key="chat.id">
+        <div @click="loadChat(chat.id)"
+            class="p-2 bg-[#2d2f31] rounded cursor-pointer">
+            <span x-text="chat.title"></span>
+        </div>
+    </template>
+</div>
+```
+
+</aside>
+
+<!-- MAIN -->
+
+<main class="flex-1 flex flex-col">
+
+<!-- HEADER -->
+
+<header class="p-4 text-center border-b border-gray-800">
+    <h1 class="text-lg font-bold">Universal AI</h1>
+</header>
+
+<!-- CHAT -->
+
+<div id="chat-container" class="flex-1 overflow-y-auto p-4 space-y-4">
+
+<template x-if="messages.length === 0">
+    <p class="text-gray-500 text-center">System Ready</p>
+</template>
+
+<template x-for="msg in messages">
+    <div>
+        <b x-text="msg.role"></b>:
+        <span x-text="msg.content"></span>
+    </div>
+</template>
+
+</div>
+
+<!-- INPUT -->
+
+<div class="p-4 border-t border-gray-800">
+    <input x-model="userInput"
+        @keydown.enter="sendMessage()"
+        class="w-full p-3 bg-[#1e1f20] rounded"
+        placeholder="Ask anything...">
+</div>
+
+</main>
+</div>
+
+<script>
+function chatApp() {
+return {
+    isAuthenticated: false,
+    loginPass: '',
+    loginError: false,
+    userInput: '',
+    messages: [],
+    history: [],
+    currentChatId: null,
+
+    config: {
+        apiKey: '',
+        model: 'google/gemini-2.0-flash-001'
+    },
+
+    init() {
+        this.isAuthenticated = localStorage.getItem('auth') === 'true';
+        const h = localStorage.getItem('history');
+        if (h) this.history = JSON.parse(h);
+        this.createNewChat();
+        setTimeout(() => lucide.createIcons(), 200);
+    },
+
+    verifyPass() {
+        if (this.loginPass === 'bhupi2026') {
+            this.isAuthenticated = true;
+            localStorage.setItem('auth', 'true');
+            this.loginError = false;
+        } else {
+            this.loginError = true;
+        }
+    },
+
+    createNewChat() {
+        this.currentChatId = Date.now();
+        this.messages = [];
+    },
+
+    loadChat(id) {
+        const chat = this.history.find(c => c.id === id);
+        if (chat) {
+            this.currentChatId = id;
+            this.messages = chat.messages;
+        }
+    },
+
+    async sendMessage() {
+        if (!this.userInput.trim()) return;
+
+        const text = this.userInput;
+
+        this.messages.push({ role: 'user', content: text });
+        this.userInput = '';
+
+        try {
+            const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Authorization": "Bearer YOUR_API_KEY_HERE",
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    model: this.config.model,
+                    messages: this.messages
+                })
+            });
+
+            const data = await res.json();
+
+            const reply = data?.choices?.[0]?.message?.content || "No response";
+
+            this.messages.push({ role: 'assistant', content: reply });
+
+            this.history.unshift({
+                id: this.currentChatId,
+                title: text.slice(0,20),
+                messages: [...this.messages]
+            });
+
+            localStorage.setItem('history', JSON.stringify(this.history));
+
+        } catch {
+            this.messages.push({ role: 'assistant', content: "API Error" });
+        }
+    }
+}
+}
+</script>
+
+</body>
+</html>
